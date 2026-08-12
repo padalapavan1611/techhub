@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - TechHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">TechHub</div>
+        <div class="navbar-links">
+            <a href="dashboard.html">Search</a>
+            <a href="history.html">History</a>
+            <a href="saved.html">Saved</a>
+            <a href="profile.html">Profile</a>
+            <button class="btn-icon" onclick="toggleTheme()" id="theme-icon">🌙</button>
+            <a href="#" onclick="logout()" style="color:var(--danger);">Logout</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h1 style="font-size:32px; font-weight:600; margin-bottom:32px; text-align:center;">What would you like to learn?</h1>
+        
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Ask any technical question...">
+            <button class="btn-primary" onclick="performSearch()">Search</button>
+        </div>
+        
+        <div class="suggestions">
+            <span class="chip" onclick="quickSearch('How to undo git commit')">git commit</span>
+            <span class="chip" onclick="quickSearch('Python read CSV')">Python CSV</span>
+            <span class="chip" onclick="quickSearch('JavaScript array methods')">JS arrays</span>
+            <span class="chip" onclick="quickSearch('SQL join query')">SQL join</span>
+            <span class="chip" onclick="quickSearch('Docker container')">Docker</span>
+            <span class="chip" onclick="quickSearch('React useState')">React</span>
+            <span class="chip" onclick="quickSearch('Center div CSS')">CSS center</span>
+        </div>
+        
+        <p style="color:var(--text-muted); font-size:13px; text-align:center; margin-top:40px;">
+            Searches Stack Overflow, GitHub, Reddit, Wikipedia, Dev.to, GeeksforGeeks, Medium, YouTube, DuckDuckGo, and Gemini AI in real-time.
+        </p>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

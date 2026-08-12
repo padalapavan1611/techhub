@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - TechHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">TechHub</div>
+        <div class="navbar-links">
+            <a href="dashboard.html">Search</a>
+            <a href="history.html">History</a>
+            <a href="saved.html">Saved</a>
+            <a href="profile.html">Profile</a>
+            <button class="btn-icon" onclick="toggleTheme()" id="theme-icon">🌙</button>
+            <a href="#" onclick="logout()" style="color:var(--danger);">Logout</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h1 style="font-size:28px; font-weight:600; margin-bottom:32px;">Settings</h1>
+        
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Appearance</span>
+                </div>
+                <div class="card-body">
+                    <p style="margin-bottom:12px;">Choose your theme</p>
+                    <button class="btn-outline" onclick="toggleTheme()">Toggle Dark/Light Mode</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Search Sources</span>
+                </div>
+                <div class="card-body">
+                    <p style="color:var(--text-secondary); font-size:14px;">
+                        Stack Overflow, GitHub, Reddit, Wikipedia, Dev.to, GeeksforGeeks, Medium, YouTube, DuckDuckGo, Gemini AI
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

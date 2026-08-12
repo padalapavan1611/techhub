@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History - TechHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">TechHub</div>
+        <div class="navbar-links">
+            <a href="dashboard.html">Search</a>
+            <a href="history.html">History</a>
+            <a href="saved.html">Saved</a>
+            <a href="profile.html">Profile</a>
+            <button class="btn-icon" onclick="toggleTheme()" id="theme-icon">🌙</button>
+            <a href="#" onclick="logout()" style="color:var(--danger);">Logout</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <h1 style="font-size:28px; font-weight:600; margin-bottom:32px;">Search History</h1>
+        <div id="history-container"></div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

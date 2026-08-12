@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechHub - Multi- Source Technical Question Answering With Consensus Detection.</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">TechHub</div>
+        <div class="navbar-links">
+            <button class="btn-icon" onclick="toggleTheme()" id="theme-icon">🌙</button>
+            <a href="login.html">Sign in</a>
+            <a href="register.html" class="btn-primary">Get Started</a>
+        </div>
+    </nav>
+    
+    <div class="container" style="text-align:center; padding-top:60px;">
+        <h1 style="font-size:42px; font-weight:700; margin-bottom:12px; letter-spacing:-0.03em;">Technical answers from multiple sources</h1>
+        <p style="color:var(--text-secondary); font-size:18px; margin-bottom:40px;">Compared. Verified. Trusted.</p>
+        
+        <div class="search-box">
+            <input type="text" id="search-input" placeholder="Ask any technical question...">
+            <button class="btn-primary" onclick="performSearch()">Search</button>
+        </div>
+        
+        <div class="suggestions">
+            <span class="chip" onclick="quickSearch('How to undo git commit')">How to undo git commit</span>
+            <span class="chip" onclick="quickSearch('How to read CSV in Python')">Python CSV</span>
+            <span class="chip" onclick="quickSearch('JavaScript array loop')">JavaScript loops</span>
+            <span class="chip" onclick="quickSearch('Center div CSS')">Center div CSS</span>
+            <span class="chip" onclick="quickSearch('SQL join query')">SQL join</span>
+        </div>
+        
+        <div class="stats-grid" style="max-width:800px; margin:60px auto;">
+            <div class="stat-card">
+                <div class="stat-value">10+</div>
+                <div class="stat-label">Sources Searched</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">90%</div>
+                <div class="stat-label">Average Confidence</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">Real-time</div>
+                <div class="stat-label">Live Results</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

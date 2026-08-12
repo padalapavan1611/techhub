@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results - TechHub</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-logo">TechHub</div>
+        <div class="navbar-links">
+            <a href="dashboard.html">New Search</a>
+            <a href="history.html">History</a>
+            <a href="saved.html">Saved</a>
+            <a href="profile.html">Profile</a>
+            <button class="btn-icon" onclick="toggleTheme()" id="theme-icon"></button>
+            <a href="#" onclick="logout()" style="color:var(--danger);">Logout</a>
+        </div>
+    </nav>
+    <div class="container" style="max-width:1400px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+            <div class="card" style="cursor:default;"><h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Search Analysis</h3><div id="search-analysis-content"></div></div>
+            <div class="card" style="cursor:default;"><h3 style="font-size:16px;font-weight:600;margin-bottom:12px;">Consensus Detection</h3><div id="consensus-content"></div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+            <div><h2 id="query-display" style="font-size:24px;font-weight:600;margin-bottom:4px;"></h2><p id="topic-display" style="color:var(--text-secondary);font-size:14px;"></p></div>
+            <button class="btn-outline" onclick="copyAllResults()">Copy All Results</button>
+        </div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px;">Sources searched: <span id="sources-displayed"></span></p>
+        <div class="suggestions" style="justify-content:flex-start;margin-bottom:24px;">
+            <span class="chip" onclick="filterResults('all')">All Sources</span>
+            <span class="chip" onclick="filterResults('Gemini AI')">Gemini AI</span>
+            <span class="chip" onclick="filterResults('Google Search')">Google</span>
+            <span class="chip" onclick="filterResults('YouTube')">YouTube</span>
+            <span class="chip" onclick="filterResults('Stack Overflow')">Stack Overflow</span>
+            <span class="chip" onclick="filterResults('GitHub')">GitHub</span>
+            <span class="chip" onclick="filterResults('Wikipedia')">Wikipedia</span>
+            <span class="chip" onclick="filterResults('Dev.to')">Dev.to</span>
+            <span class="chip" onclick="filterResults('Reddit')">Reddit</span>
+        </div>
+        <div id="results-container"></div>
+        <div id="related-container" style="margin-top:40px;"></div>
+        <div style="text-align:center;margin-top:40px;"><a href="dashboard.html" class="btn-outline">New Search</a></div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
