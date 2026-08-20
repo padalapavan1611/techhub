@@ -1,4 +1,4 @@
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = 'https://techhub-iasz.onrender.com';
 let currentToken = localStorage.getItem('token') || null;
 let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
 let allResults = null;
