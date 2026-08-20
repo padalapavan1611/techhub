@@ -395,28 +395,53 @@ def search_stackoverflow(query, limit=5):
 def search_github(query, limit=3):
     try:
         topic = detect_topic(query)
-        topic_language = {'python': 'python', 'javascript': 'javascript', 'java': 'java', 'c_cpp': 'c++', 'csharp': 'c#', 'ruby': 'ruby', 'php': 'php', 'go': 'go', 'rust': 'rust', 'swift': 'swift', 'kotlin': 'kotlin', 'typescript': 'typescript'}
+        
+        topic_language = {'python': 'python', 'javascript': 'javascript', 'java': 'java', 'c_cpp': 'c++', 'csharp': 'c#', 'ruby': 'ruby', 'php': 'php', 'go': 'go', 'rust': 'rust', 'swift': 'swift', 'kotlin': 'kotlin', 'typescript': 'typescript', 'git': 'git'}
+        
         language = topic_language.get(topic, '')
         url = "https://api.github.com/search/repositories"
         search_query = query
         if language:
             search_query = f"{query} language:{language}"
+        
         params = {'q': search_query, 'sort': 'stars', 'per_page': limit * 3}
         r = requests.get(url, params=params, timeout=10)
+        
         if r.status_code == 200:
             results = []
+            query_words = [w.lower() for w in query.split() if len(w) > 3]
+            
             for i in r.json().get('items', []):
                 stars = i.get('stargazers_count', 0)
-                if stars < 10:
-                    continue
-                results.append({'source': 'GitHub', 'title': i.get('full_name', ''), 'body': (i.get('description', '') or 'No description')[:250], 'url': i.get('html_url', ''), 'stars': stars, 'language': i.get('language', ''), 'topics': i.get('topics', [])[:5], 'confidence': calculate_confidence('GitHub', stars=stars), 'trust_score': 8, 'reliability': 'High', 'date': i.get('updated_at', '')[:10]})
+                description = (i.get('description', '') or '').lower()
+                name = (i.get('full_name', '') or '').lower()
+                combined = name + ' ' + description
+                
+                # Require at least 2 query words in name/description
+                matches = sum(1 for w in query_words if w in combined)
+                
+                if matches >= 2 and stars > 50:
+                    results.append({
+                        'source': 'GitHub',
+                        'title': i.get('full_name', ''),
+                        'body': (i.get('description', '') or 'No description')[:250],
+                        'url': i.get('html_url', ''),
+                        'stars': stars,
+                        'language': i.get('language', ''),
+                        'topics': i.get('topics', [])[:5],
+                        'confidence': calculate_confidence('GitHub', stars=stars),
+                        'trust_score': 8,
+                        'reliability': 'High',
+                        'date': i.get('updated_at', '')[:10]
+                    })
+                
                 if len(results) >= limit:
                     break
+            
             return results
     except Exception as e:
         print(f"GH: {e}")
     return []
-
 def search_wikipedia(query, limit=3):
     try:
         stop_words = {'how', 'to', 'what', 'is', 'the', 'a', 'an', 'in', 'of', 'for', 'and', 'or', 'but', 'can', 'you', 'i', 'me', 'my', 'do', 'does', 'did', 'why', 'when', 'where', 'which', 'who', 'use', 'using', 'with', 'without', 'from', 'this', 'that', 'these', 'those', 'it', 'on', 'at', 'by'}
