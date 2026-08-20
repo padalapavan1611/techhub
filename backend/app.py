@@ -7,6 +7,7 @@ import requests
 import uuid
 import concurrent.futures
 import time
+import json as json_module
 from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -15,12 +16,16 @@ from bs4 import BeautifulSoup
 app = Flask(__name__, static_folder='../frontend', static_url_path='')
 CORS(app)
 
-GEMINI_API_KEY = "AQ.Ab8RN6L_7S7LFHbXGPYavCaVG9Ry5yWu_qk2LgMnkEeUkBza5g"
-GEMINI_MODEL = "gemini-flash-latest"
-GOOGLE_API_KEY = "AIzaSyAqb9g7ZolRsJckqOAjXiZL059brW5q00Q"
-GOOGLE_CX = "e2feda9a33c5442fc"
-YOUTUBE_API_KEY = "AIzaSyBkvTlQmeEeKsHsJtiYzpDSfJd8S1sJefo"
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'users.db')
+# ============ CONFIG ============
+from dotenv import load_dotenv
+
+# Load .env from project root
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
+
+GROQ_API_KEY = os.getenv('GROQ_API_KEY', '')
+GROQ_MODEL = os.getenv('GROQ_MODEL', 'openai/gpt-oss-20b')
+YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY', '')
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'techhub.db')
 SECRET_KEY = "techhub-secret-2026"
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
 
@@ -31,7 +36,7 @@ SOURCE_TRUST = {
     'GitHub': {'score': 8, 'reliability': 'High'},
     'Wikipedia': {'score': 8, 'reliability': 'High'},
     'Dev.to': {'score': 7, 'reliability': 'Good'},
-    'Reddit': {'score': 5, 'reliability': 'Medium'},
+    'Reddit': {'score': 7, 'reliability': 'Good'},
     'YouTube': {'score': 6, 'reliability': 'Good'}
 }
 
@@ -51,6 +56,8 @@ def init_db():
         conn.close()
     except:
         pass
+
+init_db()
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
@@ -73,150 +80,258 @@ def verify_token(token):
         return {'success': False}
 
 def detect_topic(query):
-    q = query.lower()
-    topics = {
-        'python': ['python', 'pandas', 'flask', 'django', 'pip', 'csv', 'numpy'],
-        'javascript': ['javascript', 'js', 'node', 'react', 'vue', 'npm', 'dom', 'callback'],
-        'java': ['java', 'spring', 'maven', 'kotlin', 'hibernate'],
-        'c_cpp': ['c++', 'cpp', 'gcc', 'pointer', 'cmake'],
-        'git': ['git', 'commit', 'branch', 'merge', 'rebase', 'repo', 'push', 'pull', 'clone'],
-        'sql': ['sql', 'mysql', 'postgresql', 'query', 'join', 'table'],
-        'docker': ['docker', 'container', 'image', 'compose'],
-        'kubernetes': ['kubernetes', 'k8s', 'pod', 'deployment', 'helm'],
-        'html': ['html', 'div', 'span', 'form', 'table'],
-        'css': ['css', 'flexbox', 'grid', 'bootstrap', 'tailwind', 'margin'],
-        'machine_learning': ['machine learning', 'ml', 'tensorflow', 'pytorch', 'model'],
-        'cybersecurity': ['security', 'encryption', 'firewall', 'vpn', 'malware'],
-        'linux': ['linux', 'ubuntu', 'bash', 'shell', 'terminal'],
-        'blockchain': ['blockchain', 'bitcoin', 'ethereum', 'solidity', 'web3']
+    topic_keywords = {
+        'python': ['python', 'pandas', 'numpy', 'flask', 'django', 'pip', 'conda', 'jupyter', 'matplotlib', 'scipy', 'pytest', 'sqlalchemy', 'celery', 'asyncio', 'decorator', 'lambda', 'list comprehension', 'dictionary', 'tuple', 'virtualenv', 'pydantic', 'beautifulsoup', 'scrapy', 'selenium', 'opencv', 'pygame', 'tkinter', 'pyqt', 'multiprocessing', 'threading', 'metaclass', 'dataclass', 'generator', 'coroutine'],
+        'javascript': ['javascript', 'js', 'node', 'react', 'vue', 'angular', 'typescript', 'npm', 'yarn', 'dom', 'callback', 'promise', 'async', 'await', 'jsx', 'express', 'nextjs', 'nuxt', 'svelte', 'webpack', 'babel', 'jest', 'cypress', 'electron', 'redux', 'usestate', 'useeffect', 'closure', 'hoisting', 'arrow function', 'spread', 'destructuring', 'fetch', 'axios', 'websocket', 'event loop'],
+        'java': ['java', 'spring', 'maven', 'gradle', 'jvm', 'kotlin', 'hibernate', 'jpa', 'servlet', 'junit', 'mockito', 'arraylist', 'hashmap', 'interface', 'abstract', 'override', 'exception', 'thread', 'synchronized', 'generics', 'enum', 'annotation', 'reflection', 'stream api'],
+        'git': ['git', 'commit', 'branch', 'merge', 'rebase', 'repo', 'pull', 'push', 'clone', 'reset', 'revert', 'stash', 'checkout', 'github', 'gitlab', 'version control', 'diff', 'conflict', 'remote', 'fork', 'pull request', 'cherry-pick'],
+        'sql': ['sql', 'mysql', 'postgresql', 'sqlite', 'query', 'select', 'insert', 'update', 'delete', 'join', 'inner join', 'left join', 'table', 'index', 'primary key', 'foreign key', 'trigger', 'view', 'stored procedure', 'transaction'],
+        'docker': ['docker', 'dockerfile', 'container', 'image', 'volume', 'compose', 'dockerhub', 'registry', 'containerize', 'orchestration'],
+        'kubernetes': ['kubernetes', 'k8s', 'kubectl', 'pod', 'deployment', 'service', 'ingress', 'helm', 'cluster', 'minikube', 'eks', 'aks', 'gke', 'istio', 'prometheus', 'grafana'],
+        'html_css': ['html', 'css', 'div', 'span', 'flexbox', 'grid', 'bootstrap', 'tailwind', 'margin', 'padding', 'responsive', 'animation', 'transition', 'media query', 'center', 'layout'],
+        'machine_learning': ['machine learning', 'ml', 'model', 'training', 'accuracy', 'tensorflow', 'pytorch', 'keras', 'neural network', 'deep learning', 'regression', 'classification', 'clustering', 'overfitting', 'gradient descent'],
+        'cybersecurity': ['security', 'encryption', 'hashing', 'firewall', 'vpn', 'malware', 'phishing', 'ddos', 'penetration testing', 'vulnerability', 'exploit', 'cryptography', 'authentication'],
+        'linux': ['linux', 'ubuntu', 'bash', 'shell', 'terminal', 'ssh', 'cron', 'chmod', 'sudo', 'apt', 'grep', 'awk', 'sed'],
+        'blockchain': ['blockchain', 'bitcoin', 'ethereum', 'solidity', 'web3', 'nft', 'defi', 'token', 'wallet', 'metamask', 'smart contract'],
+        'aws': ['aws', 'ec2', 's3', 'lambda', 'rds', 'dynamodb', 'cloudfront', 'cloudwatch', 'iam', 'vpc', 'serverless'],
+        'android': ['android', 'apk', 'google play', 'gradle', 'manifest', 'activity', 'fragment', 'recyclerview', 'jetpack', 'compose', 'kotlin coroutine'],
+        'ios': ['ios', 'swift', 'swiftui', 'xcode', 'app store', 'testflight', 'uikit', 'core data', 'autolayout'],
+        'data_science': ['data science', 'data analysis', 'visualization', 'pandas', 'tableau', 'chart', 'dashboard', 'statistics', 'regression', 'hypothesis'],
+        'networking': ['networking', 'tcp', 'udp', 'dns', 'dhcp', 'routing', 'switching', 'subnet', 'firewall', 'bandwidth', 'latency', 'packet'],
+        'devops': ['devops', 'ci/cd', 'jenkins', 'github actions', 'pipeline', 'terraform', 'ansible', 'monitoring', 'automation', 'deployment'],
     }
-    for topic, kws in topics.items():
-        if any(kw in q for kw in kws):
-            return topic
-    return 'general'
-
-def calculate_confidence(source, score=0, stars=0):
-    base = {'Gemini AI': 0.90, 'Google Search': 0.60, 'Stack Overflow': 0.60, 'GitHub': 0.55, 'Wikipedia': 0.70, 'Dev.to': 0.60, 'Reddit': 0.40, 'YouTube': 0.50}
-    conf = base.get(source, 0.5)
-    if source == 'Stack Overflow':
-        conf += min(score / 500, 0.2)
-    elif source == 'GitHub':
-        conf += min(stars / 10000, 0.2)
-    return min(conf, 0.95)
-
-def ask_gemini(query):
-    """Uses Groq (free, fast) - shows as Gemini AI"""
-    GROQ_API_KEY = "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"
     
+    query_lower = query.lower()
+    words = query_lower.split()
+    
+    scores = {}
+    for topic, keywords in topic_keywords.items():
+        score = 0
+        for kw in keywords:
+            if kw in query_lower:
+                score += 2
+            elif kw in words:
+                score += 1
+        if score > 0:
+            scores[topic] = score
+    
+    if scores:
+        best_topic = max(scores, key=scores.get)
+        best_score = scores[best_topic]
+        if best_score >= 3:
+            return best_topic
+        if best_score >= 1:
+            ai_topic = detect_topic_ai(query)
+            if ai_topic and ai_topic != 'general':
+                return ai_topic
+            return best_topic
+    
+    return detect_topic_ai(query)
+
+def detect_topic_ai(query):
     try:
         url = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {
-            'Authorization': f'Bearer {GROQ_API_KEY}',
-            'Content-Type': 'application/json'
-        }
+        headers = {'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'}
+        prompt = f"""Classify this technical question into ONE category:
+python, javascript, java, c_cpp, csharp, ruby, php, go, rust, swift, kotlin, typescript, html_css, frontend, backend, fullstack, react, vue, angular, nodejs, django, flask, mysql, postgresql, sqlite, mongodb, redis, docker, kubernetes, aws, azure, gcp, terraform, ansible, devops, linux, networking, blockchain, machine_learning, deep_learning, nlp, data_science, cybersecurity, android, ios, flutter, react_native, game_dev, robotics, quantum, ar_vr, iot, embedded, operating_system, software_testing, api_development, microservices, serverless, git, bash_shell
+
+Question: {query}
+Return ONLY category name (lowercase, underscores). No explanation."""
         data = {
-            "model": "llama-3.1-8b-instant",
-            "messages": [{"role": "user", "content": f"Answer this technical question clearly with code examples: {query}"}],
-            "max_tokens": 500
+            "model": GROQ_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 20,
+            "temperature": 0.1
         }
-        r = requests.post(url, headers=headers, json=data, timeout=20)
-        
-        print(f"AI status: {r.status_code}")
-        
+        r = requests.post(url, headers=headers, json=data, timeout=10)
         if r.status_code == 200:
-            return r.json()['choices'][0]['message']['content']
+            topic = r.json()['choices'][0]['message']['content'].strip().lower()
+            topic = re.sub(r'[^a-z_]', '', topic)
+            return topic if topic else 'general'
+        return 'general'
+    except:
+        return 'general'
+
+def calculate_confidence(source, score=0, stars=0, is_answered=False, views=0, likes=0):
+    if source == 'Stack Overflow':
+        votes = score
+        if is_answered and votes >= 100:
+            return 0.95
+        elif votes >= 100:
+            return 0.85
+        elif votes >= 50:
+            return 0.75
+        elif votes >= 10:
+            return 0.60
+        elif votes >= 5:
+            return 0.50
+        else:
+            return 0.40
+    elif source == 'GitHub':
+        if stars >= 10000:
+            return 0.90
+        elif stars >= 1000:
+            return 0.80
+        elif stars >= 100:
+            return 0.65
+        elif stars >= 10:
+            return 0.50
+        else:
+            return 0.35
+    elif source == 'YouTube':
+        like_ratio = (likes / views) if views > 0 else 0
+        if views >= 1000000 and like_ratio > 0.02:
+            return 0.85
+        elif views >= 100000:
+            return 0.70
+        elif views >= 10000:
+            return 0.55
+        elif views >= 1000:
+            return 0.45
+        else:
+            return 0.35
+    elif source == 'Wikipedia':
+        return 0.75
+    elif source == 'Gemini AI':
+        return 0.85
+    elif source == 'Google Search':
+        return 0.55
+    elif source == 'Dev.to':
+        return 0.55
+    elif source == 'Reddit':
+        if score >= 100:
+            return 0.65
+        elif score >= 20:
+            return 0.50
+        else:
+            return 0.35
+    return 0.50
+
+def ask_gemini(query, topic='general'):
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'}
+        system_prompt = """You are TechHub, an expert technical assistant.
+Rules:
+1. ALWAYS answer the user's question directly - never say "I'm ready to help"
+2. Include code examples when relevant
+3. Be concise but complete
+4. Format code in markdown blocks"""
+        data = {
+            "model": GROQ_MODEL,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Topic: {topic}\n\nQuestion: {query}\n\nAnswer directly:"}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.3
+        }
+        for attempt in range(3):
+            r = requests.post(url, headers=headers, json=data, timeout=20)
+            print(f"GROQ attempt {attempt+1}: status {r.status_code}")
+            if r.status_code == 200:
+                answer = r.json()['choices'][0]['message']['content']
+                print(f"GROQ answer length: {len(answer)}")
+                if len(answer) < 20 or "ready to help" in answer.lower():
+                    time.sleep(2)
+                    continue
+                return answer
+            elif r.status_code == 429:
+                time.sleep(5)
+                continue
+            else:
+                print(f"GROQ error: {r.text[:200]}")
+                break
         return None
     except Exception as e:
-        print(f"AI error: {e}")
+        print(f"GROQ error: {e}")
         return None
 
 def search_google(query, limit=5):
-    """Uses DuckDuckGo + Bing - removes duplicates"""
     results = []
     seen_urls = set()
-    
-    # Try DuckDuckGo first
     try:
         url = "https://api.duckduckgo.com/"
-        params = {'q': query, 'format': 'json', 'no_html': 1}
+        params = {'q': query, 'format': 'json', 'no_html': 1, 'no_redirect': 1, 'skip_disambig': 1}
         r = requests.get(url, params=params, timeout=10)
         if r.status_code == 200:
             data = r.json()
-            if data.get('AbstractText'):
+            if data.get('AbstractText') and len(data.get('AbstractText', '')) > 50:
                 abstract_url = data.get('AbstractURL', '')
                 if abstract_url not in seen_urls:
                     seen_urls.add(abstract_url)
-                    results.append({
-                        'source': 'Google Search',
-                        'title': data.get('Heading', query),
-                        'body': data.get('AbstractText', '')[:200],
-                        'url': abstract_url,
-                        'confidence': 0.70,
-                        'trust_score': 7,
-                        'reliability': 'High',
-                        'date': ''
-                    })
+                    results.append({'source': 'Google Search', 'title': data.get('Heading', query), 'body': data.get('AbstractText', '')[:250], 'url': abstract_url, 'confidence': 0.75, 'trust_score': 7, 'reliability': 'High', 'date': ''})
             for topic in data.get('RelatedTopics', []):
                 if isinstance(topic, dict) and 'Text' in topic:
+                    topic_text = topic.get('Text', '')
                     topic_url = topic.get('FirstURL', '')
-                    if topic_url not in seen_urls:
-                        seen_urls.add(topic_url)
-                        results.append({
-                            'source': 'Google Search',
-                            'title': topic.get('Text', '')[:100],
-                            'body': topic.get('Text', '')[:200],
-                            'url': topic_url,
-                            'confidence': 0.55,
-                            'trust_score': 6,
-                            'reliability': 'Good',
-                            'date': ''
-                        })
-                if len(results) >= limit:
-                    break
+                    if topic_url and topic_url not in seen_urls:
+                        text_lower = topic_text.lower()
+                        if any(w in text_lower for w in query.lower().split()[:3]):
+                            seen_urls.add(topic_url)
+                            results.append({'source': 'Google Search', 'title': topic_text[:100], 'body': topic_text[:250], 'url': topic_url, 'confidence': 0.60, 'trust_score': 6, 'reliability': 'Good', 'date': ''})
+                    if len(results) >= limit:
+                        break
     except:
         pass
-    
-    # Try Bing if DuckDuckGo returns nothing
-    if not results:
+    if len(results) < 2:
         try:
-            url = f"https://www.bing.com/search?q={query}"
+            url = f"https://www.bing.com/search?q={query}&count={limit*2}"
             r = requests.get(url, headers=HEADERS, timeout=10)
             if r.status_code == 200:
                 soup = BeautifulSoup(r.text, 'html.parser')
                 for item in soup.find_all('li', class_='b_algo'):
                     title_elem = item.find('h2')
                     link_elem = item.find('a')
-                    snippet = item.find('p')
+                    snippet = item.find('div', class_='b_caption')
                     if title_elem and link_elem:
+                        title = title_elem.get_text(strip=True)
                         link = link_elem.get('href', '')
-                        if link not in seen_urls:
+                        body = snippet.get_text(strip=True)[:250] if snippet else ''
+                        if 'bing.com' in link or 'microsoft.com' in link:
+                            continue
+                        title_lower = title.lower()
+                        if link not in seen_urls and any(w in title_lower for w in query.lower().split()[:3]):
                             seen_urls.add(link)
-                            results.append({
-                                'source': 'Google Search',
-                                'title': title_elem.get_text(strip=True),
-                                'body': snippet.get_text(strip=True)[:200] if snippet else '',
-                                'url': link,
-                                'confidence': 0.65,
-                                'trust_score': 7,
-                                'reliability': 'Good',
-                                'date': ''
-                            })
-                    if len(results) >= limit:
-                        break
+                            results.append({'source': 'Google Search', 'title': title, 'body': body, 'url': link, 'confidence': 0.65, 'trust_score': 7, 'reliability': 'Good', 'date': ''})
+                        if len(results) >= limit:
+                            break
         except:
             pass
-    
-    return results[:limit]
+    final_results = []
+    seen_titles = set()
+    for r in results:
+        title_key = r['title'][:60].lower()
+        if title_key not in seen_titles:
+            seen_titles.add(title_key)
+            final_results.append(r)
+    return final_results[:limit]
+
 def search_youtube(query, limit=3):
     try:
         url = "https://www.googleapis.com/youtube/v3/search"
-        params = {'q': query, 'key': YOUTUBE_API_KEY, 'part': 'snippet', 'type': 'video', 'maxResults': limit}
+        params = {'q': query, 'key': YOUTUBE_API_KEY, 'part': 'snippet', 'type': 'video', 'maxResults': limit, 'order': 'relevance', 'videoEmbeddable': 'true'}
         r = requests.get(url, params=params, timeout=10)
         if r.status_code == 200:
+            items = r.json().get('items', [])
+            if not items:
+                return []
+            video_ids = [i['id']['videoId'] for i in items]
+            stats_url = "https://www.googleapis.com/youtube/v3/videos"
+            stats_params = {'id': ','.join(video_ids), 'key': YOUTUBE_API_KEY, 'part': 'statistics'}
+            stats_r = requests.get(stats_url, params=stats_params, timeout=10)
+            stats_data = {}
+            if stats_r.status_code == 200:
+                for item in stats_r.json().get('items', []):
+                    stats_data[item['id']] = item.get('statistics', {})
             results = []
-            for i in r.json().get('items', []):
-                vid = i.get('id', {}).get('videoId', '')
-                results.append({'source': 'YouTube', 'title': i.get('snippet',{}).get('title',''), 'body': i.get('snippet',{}).get('description','')[:150], 'url': f'https://youtube.com/watch?v={vid}', 'confidence': 0.50, 'trust_score': 6, 'reliability': 'Good', 'date': i.get('snippet',{}).get('publishedAt','')[:10]})
+            for item in items:
+                vid = item['id']['videoId']
+                snippet = item.get('snippet', {})
+                stats = stats_data.get(vid, {})
+                views = int(stats.get('viewCount', 0))
+                likes = int(stats.get('likeCount', 0))
+                results.append({'source': 'YouTube', 'title': snippet.get('title', ''), 'body': snippet.get('description', '')[:200], 'url': f'https://youtube.com/watch?v={vid}', 'views': views, 'likes': likes, 'channel': snippet.get('channelTitle', ''), 'confidence': calculate_confidence('YouTube', views=views, likes=likes), 'trust_score': 6, 'reliability': 'Good', 'date': snippet.get('publishedAt', '')[:10]})
             return results
     except Exception as e:
         print(f"YouTube: {e}")
@@ -225,7 +340,7 @@ def search_youtube(query, limit=3):
 def search_stackoverflow(query, limit=5):
     try:
         url = "https://api.stackexchange.com/2.3/search/advanced"
-        params = {'q': query, 'site': 'stackoverflow', 'pagesize': limit, 'order': 'desc', 'sort': 'relevance', 'filter': 'withbody', 'answers': 1}
+        params = {'q': query, 'site': 'stackoverflow', 'pagesize': limit * 2, 'order': 'desc', 'sort': 'votes', 'filter': 'withbody', 'answers': 1, 'closed': 'False'}
         r = requests.get(url, params=params, timeout=10)
         if r.status_code == 200:
             results = []
@@ -234,230 +349,184 @@ def search_stackoverflow(query, limit=5):
                 link = i.get('link', '')
                 if link in seen:
                     continue
-                seen.add(link)
                 score = i.get('score', 0)
-                results.append({
-                    'source': 'Stack Overflow',
-                    'title': i.get('title', ''),
-                    'body': re.sub(r'<[^>]+>', '', i.get('body', ''))[:200],
-                    'url': link,
-                    'score': score,
-                    'confidence': calculate_confidence('Stack Overflow', score=score),
-                    'trust_score': 9,
-                    'reliability': 'Very High',
-                    'date': datetime.fromtimestamp(i.get('creation_date', 0)).strftime('%Y-%m-%d')
-                })
+                if score < 5:
+                    continue
+                seen.add(link)
+                results.append({'source': 'Stack Overflow', 'title': i.get('title', ''), 'body': re.sub(r'<[^>]+>', '', i.get('body', ''))[:300], 'url': link, 'score': score, 'is_answered': i.get('is_answered', False), 'tags': i.get('tags', [])[:3], 'confidence': calculate_confidence('Stack Overflow', score=score, is_answered=i.get('is_answered', False)), 'reliability': 'Very High', 'date': datetime.fromtimestamp(i.get('creation_date', 0)).strftime('%Y-%m-%d')})
+                if len(results) >= limit:
+                    break
             return results
     except Exception as e:
         print(f"SO: {e}")
     return []
+
 def search_github(query, limit=3):
     try:
+        topic = detect_topic(query)
+        topic_language = {'python': 'python', 'javascript': 'javascript', 'java': 'java', 'c_cpp': 'c++', 'csharp': 'c#', 'ruby': 'ruby', 'php': 'php', 'go': 'go', 'rust': 'rust', 'swift': 'swift', 'kotlin': 'kotlin', 'typescript': 'typescript'}
+        language = topic_language.get(topic, '')
         url = "https://api.github.com/search/repositories"
-        params = {'q': query, 'sort': 'stars', 'per_page': 10}
+        search_query = query
+        if language:
+            search_query = f"{query} language:{language}"
+        params = {'q': search_query, 'sort': 'stars', 'per_page': limit * 3}
         r = requests.get(url, params=params, timeout=10)
         if r.status_code == 200:
             results = []
-            qwords = [w.lower() for w in query.split() if len(w) > 3]
             for i in r.json().get('items', []):
                 stars = i.get('stargazers_count', 0)
-                desc = (i.get('description') or '').lower()
-                name = (i.get('full_name') or '').lower()
-                combined = name + ' ' + desc
-                matches = sum(1 for w in qwords if w in combined)
-                if matches >= 2 and stars > 100:
-                    results.append({'source': 'GitHub', 'title': i.get('full_name',''), 'body': (i.get('description') or 'No description')[:200], 'url': i.get('html_url',''), 'stars': stars, 'confidence': calculate_confidence('GitHub', stars=stars), 'trust_score': 8, 'reliability': 'High', 'date': i.get('updated_at','')[:10]})
+                if stars < 10:
+                    continue
+                results.append({'source': 'GitHub', 'title': i.get('full_name', ''), 'body': (i.get('description', '') or 'No description')[:250], 'url': i.get('html_url', ''), 'stars': stars, 'language': i.get('language', ''), 'topics': i.get('topics', [])[:5], 'confidence': calculate_confidence('GitHub', stars=stars), 'trust_score': 8, 'reliability': 'High', 'date': i.get('updated_at', '')[:10]})
                 if len(results) >= limit:
                     break
             return results
     except Exception as e:
         print(f"GH: {e}")
     return []
+
 def search_wikipedia(query, limit=3):
     try:
-        term = query.split()[0] if query.split() else query
-        
+        stop_words = {'how', 'to', 'what', 'is', 'the', 'a', 'an', 'in', 'of', 'for', 'and', 'or', 'but', 'can', 'you', 'i', 'me', 'my', 'do', 'does', 'did', 'why', 'when', 'where', 'which', 'who', 'use', 'using', 'with', 'without', 'from', 'this', 'that', 'these', 'those', 'it', 'on', 'at', 'by'}
+        words = query.lower().split()
+        meaningful = [w for w in words if w not in stop_words]
+        search_term = ' '.join(meaningful) if meaningful else query
+        wiki_headers = {'User-Agent': 'TechHub/1.0 (contact@techhub.example.com)'}
         url = "https://en.wikipedia.org/w/api.php"
-        params = {
-            'action': 'query',
-            'list': 'search',
-            'srsearch': term,
-            'format': 'json',
-            'srlimit': limit
-        }
-        
-        # Add proper User-Agent - Wikipedia requires this
-        wiki_headers = {
-            'User-Agent': 'TechHub/1.0 (https://techhub.example.com; contact@techhub.example.com)'
-        }
-        
+        params = {'action': 'query', 'list': 'search', 'srsearch': search_term, 'format': 'json', 'srlimit': 10}
         r = requests.get(url, params=params, headers=wiki_headers, timeout=15)
-        
-        print(f"Wikipedia status: {r.status_code}")
-        
         if r.status_code == 200:
-            data = r.json()
-            search_results = data.get('query', {}).get('search', [])
-            print(f"Wikipedia found: {len(search_results)} results")
-            
+            search_results = r.json().get('query', {}).get('search', [])
             results = []
             for item in search_results:
                 title = item.get('title', '')
                 snippet = item.get('snippet', '')
                 clean_snippet = re.sub(r'<[^>]+>', '', snippet)
                 timestamp = item.get('timestamp', '')
-                
-                results.append({
-                    'source': 'Wikipedia',
-                    'title': title,
-                    'body': clean_snippet[:200],
-                    'url': f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}",
-                    'confidence': 0.70,
-                    'trust_score': 8,
-                    'reliability': 'High',
-                    'date': timestamp[:10]
-                })
-            
+                title_lower = title.lower()
+                if 'disambiguation' in title_lower:
+                    continue
+                query_words = [w for w in meaningful if len(w) > 2]
+                if query_words:
+                    if not any(w in title_lower for w in query_words):
+                        continue
+                results.append({'source': 'Wikipedia', 'title': title, 'body': clean_snippet[:250], 'url': f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}", 'confidence': 0.85, 'trust_score': 8, 'reliability': 'High', 'date': timestamp[:10]})
+                if len(results) >= limit:
+                    break
+            if results:
+                return results
+        params = {'action': 'query', 'list': 'search', 'srsearch': search_term, 'format': 'json', 'srlimit': limit}
+        r = requests.get(url, params=params, headers=wiki_headers, timeout=15)
+        if r.status_code == 200:
+            search_results = r.json().get('query', {}).get('search', [])
+            results = []
+            for item in search_results:
+                title = item.get('title', '')
+                if 'disambiguation' in title.lower():
+                    continue
+                results.append({'source': 'Wikipedia', 'title': title, 'body': re.sub(r'<[^>]+>', '', item.get('snippet', ''))[:250], 'url': f"https://en.wikipedia.org/wiki/{title.replace(' ', '_')}", 'confidence': 0.70, 'trust_score': 8, 'reliability': 'High', 'date': item.get('timestamp', '')[:10]})
+                if len(results) >= limit:
+                    break
             return results
-        
         return []
     except Exception as e:
-        print(f"Wiki error: {e}")
-        return []
+        print(f"Wiki: {e}")
+    return []
+
 def search_devto(query, limit=3):
     try:
         topic = detect_topic(query)
         tag = topic if topic != 'general' else 'programming'
-        
-        # Search by tag
-        url = f"https://dev.to/api/articles?tag={tag}&per_page={limit}"
+        url = f"https://dev.to/api/articles?tag={tag}&per_page={limit * 2}"
         r = requests.get(url, timeout=10)
-        
         if r.status_code == 200:
             results = []
             for i in r.json():
-                results.append({
-                    'source': 'Dev.to',
-                    'title': i.get('title', ''),
-                    'body': (i.get('description', '') or '')[:200],
-                    'url': i.get('url', ''),
-                    'confidence': 0.60,
-                    'trust_score': 7,
-                    'reliability': 'Good',
-                    'date': i.get('published_at', '')[:10]
-                })
-            return results
+                title = (i.get('title', '') or '').lower()
+                query_words = [w.lower() for w in query.split() if len(w) > 3]
+                matches = sum(1 for w in query_words if w in title)
+                if matches >= 1 or tag == topic:
+                    results.append({'source': 'Dev.to', 'title': i.get('title', ''), 'body': (i.get('description', '') or '')[:250], 'url': i.get('url', ''), 'tags': i.get('tags', [])[:3], 'confidence': 0.60 if matches >= 1 else 0.50, 'trust_score': 7, 'reliability': 'Good', 'date': i.get('published_at', '')[:10]})
+                if len(results) >= limit:
+                    break
+            return results if results else []
     except Exception as e:
         print(f"Dev.to: {e}")
     return []
+
 def search_reddit(query, limit=3):
-    """Shows as Reddit but uses Hacker News + Lobsters as alternatives"""
     results = []
-    
-    # Try Hacker News first
     try:
-        url = f"https://hn.algolia.com/api/v1/search?query={query}&hitsPerPage={limit}"
+        url = f"https://hn.algolia.com/api/v1/search?query={query}&hitsPerPage=10"
         r = requests.get(url, timeout=10)
         if r.status_code == 200:
             for i in r.json().get('hits', []):
-                results.append({
-                    'source': 'Reddit',
-                    'title': i.get('title', '') or i.get('story_title', ''),
-                    'body': (i.get('comment_text', '') or i.get('story_text', ''))[:200],
-                    'url': i.get('url', '') or f"https://news.ycombinator.com/item?id={i.get('objectID', '')}",
-                    'confidence': 0.55,
-                    'trust_score': 7,
-                    'reliability': 'Good',
-                    'date': i.get('created_at', '')[:10]
-                })
-    except:
-        pass
-    
-    # Try Lobsters if Hacker News returns nothing
-    if not results:
-        try:
-            url = f"https://lobste.rs/search.json?q={query}"
-            r = requests.get(url, timeout=10)
-            if r.status_code == 200:
-                for i in r.json()[:limit]:
-                    results.append({
-                        'source': 'Reddit',
-                        'title': i.get('title', ''),
-                        'body': i.get('description', '')[:200],
-                        'url': i.get('url', '') or i.get('comments_url', ''),
-                        'confidence': 0.55,
-                        'trust_score': 7,
-                        'reliability': 'Good',
-                        'date': i.get('created_at', '')[:10]
-                    })
-        except:
-            pass
-    
-    return results[:limit]
+                points = i.get('points', 0) or 0
+                created = i.get('created_at', '')
+                try:
+                    post_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    if post_date < datetime.now() - timedelta(days=365*5):
+                        continue
+                except:
+                    pass
+                if points < 5:
+                    continue
+                results.append({'source': 'Reddit', 'title': i.get('title', '') or i.get('story_title', ''), 'body': (i.get('comment_text', '') or i.get('story_text', ''))[:200], 'url': i.get('url', '') or f"https://news.ycombinator.com/item?id={i.get('objectID', '')}", 'score': points, 'confidence': calculate_confidence('Reddit', score=points), 'trust_score': 7, 'reliability': 'Good', 'date': created[:10]})
+                if len(results) >= limit:
+                    break
+    except Exception as e:
+        print(f"Reddit: {e}")
+    return results
+
 def detect_consensus(answers):
     if not answers:
         return {'consensus': [], 'minority': [], 'conflicts': [], 'recommendation': 'No answers'}
     if len(answers) < 2:
         return {'consensus': [a.get('source') for a in answers], 'minority': [], 'conflicts': [], 'recommendation': 'Only 1 source found'}
-    
-    # AI-powered consensus analysis
     try:
-        API_KEY = "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"
         summary = ""
         for a in answers[:10]:
             summary += f"Source: {a['source']}\nText: {a.get('body', a.get('title', ''))[:150]}\n\n"
-        
-        prompt = f"""You are a technical answer comparison engine. Analyze these search results from different sources.
+        prompt = f"""Analyze these search results. 
 
-Your task:
-1. Identify which sources give the SAME answer/recommendation
-2. Identify which sources give DIFFERENT or CONFLICTING answers
-3. Ignore sources that are too general or irrelevant
-4. Group sources by their CORE recommendation, not by words used
-5. Each source should appear in ONLY ONE group (agreeing OR disagreeing, not both)
+CRITICAL RULES:
+- Each source must appear in ONLY ONE list (agreeing OR disagreeing)
+- NEVER put the same source in both lists
+- Remove any source that is too general or irrelevant
+- Group by CORE recommendation, not wording
 
-For example:
-- "git reset --soft HEAD~1" and "Use git reset to undo" = AGREE (same core solution)
-- "Use git reset" and "Use git revert" = DISAGREE (different solutions)
-- "Git is version control" = NEUTRAL (general info, skip it)
-
-Return ONLY JSON: {{"agreeing": ["source1", "source2"], "disagreeing": ["source3"]}}
+Return JSON with these EXACT keys:
+{{"agreeing": [], "disagreeing": []}}
 
 {summary}"""
-        
         url = "https://api.groq.com/openai/v1/chat/completions"
-        headers = {'Authorization': f'Bearer {API_KEY}', 'Content-Type': 'application/json'}
-        data = {
-            "model": "llama-3.1-8b-instant",
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 150,
-            "temperature": 0.2
-        }
+        headers = {'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'}
+        data = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}], "max_tokens": 150, "temperature": 0.1}
         r = requests.post(url, headers=headers, json=data, timeout=15)
-        
         if r.status_code == 200:
             text = r.json()['choices'][0]['message']['content']
             match = re.search(r'\{.*\}', text, re.DOTALL)
             if match:
-                import json as json_module
                 result = json_module.loads(match.group())
-                agreeing = list(set(result.get('agreeing', [])))
-                disagreeing = list(set(result.get('disagreeing', [])))
-                
-                # Remove sources that appear in BOTH lists
-                # Priority: keep in agreeing, remove from disagreeing
-                disagreeing = [s for s in disagreeing if s not in agreeing]
-                
-                return {
-                    'consensus': agreeing,
-                    'minority': disagreeing,
-                    'conflicts': [],
-                    'recommendation': ''
-                }
+                raw_agreeing = result.get('agreeing', [])
+                raw_disagreeing = result.get('disagreeing', [])
+                def clean_list(items):
+                    cleaned = []
+                    seen = set()
+                    for item in items:
+                        key = item.lower().strip()
+                        if key not in seen:
+                            seen.add(key)
+                            cleaned.append(item)
+                    return cleaned
+                agreeing = clean_list(raw_agreeing)
+                disagreeing = clean_list(raw_disagreeing)
+                agreeing_keys = {a.lower().strip() for a in agreeing}
+                disagreeing = [d for d in disagreeing if d.lower().strip() not in agreeing_keys]
+                return {'consensus': agreeing, 'minority': disagreeing, 'conflicts': [], 'recommendation': ''}
     except:
         pass
-    
-    # Fallback to simple algorithm
     def extract(text):
         if not text: return set()
         text = text.lower()
@@ -465,7 +534,6 @@ Return ONLY JSON: {{"agreeing": ["source1", "source2"], "disagreeing": ["source3
         words = set(re.findall(r'\b[a-z][a-z0-9_-]{3,}\b', text))
         stop = {'the','and','for','with','that','this','are','was','were','have','has','had','not','but','from','they','will','would','could','should','what','when','where','which','who','how','all','any','each','other','some','such','only','then','than','too','very','just','can','now','you','your','our','their'}
         return code | (words - stop)
-    
     source_terms = {}
     for a in answers:
         source = a.get('source', 'Unknown')
@@ -473,7 +541,6 @@ Return ONLY JSON: {{"agreeing": ["source1", "source2"], "disagreeing": ["source3
         if source not in source_terms:
             source_terms[source] = set()
         source_terms[source].update(extract(text))
-    
     sources = list(source_terms.keys())
     similarities = {}
     for i, s1 in enumerate(sources):
@@ -481,7 +548,6 @@ Return ONLY JSON: {{"agreeing": ["source1", "source2"], "disagreeing": ["source3
             t1, t2 = source_terms[s1], source_terms[s2]
             sim = len(t1 & t2) / len(t1 | t2) if t1 and t2 else 0
             similarities[(s1, s2)] = sim
-    
     groups = []
     used = set()
     for source in sources:
@@ -495,28 +561,30 @@ Return ONLY JSON: {{"agreeing": ["source1", "source2"], "disagreeing": ["source3
                     group.append(other)
                     used.add(other)
         groups.append(group)
-    
     groups.sort(key=len, reverse=True)
     consensus = groups[0] if groups else []
     minority = [s for g in groups[1:] for s in g] if len(groups) > 1 else []
+    consensus = list(dict.fromkeys(consensus))
+    minority = list(dict.fromkeys(minority))
     minority = [s for s in minority if s not in consensus]
-    
     return {'consensus': consensus, 'minority': minority, 'conflicts': [], 'recommendation': ''}
+
 def search_all_sources(query):
     all_results = []
     sources_searched = []
-    
-    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+    topic = detect_topic(query)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
         futures = {
-            executor.submit(ask_gemini, query): 'Gemini AI',
+            executor.submit(ask_gemini, query, topic): 'Gemini AI',
             executor.submit(search_google, query): 'Google Search',
             executor.submit(search_youtube, query): 'YouTube',
             executor.submit(search_stackoverflow, query): 'Stack Overflow',
+            executor.submit(search_github, query): 'GitHub',
             executor.submit(search_wikipedia, query): 'Wikipedia',
-            executor.submit(search_reddit, query): 'Reddit',
-            executor.submit(search_devto, query): 'Dev.to'
+            executor.submit(search_devto, query): 'Dev.to',
+            executor.submit(search_reddit, query): 'Reddit'
         }
-        for future in concurrent.futures.as_completed(futures, timeout=8):
+        for future in concurrent.futures.as_completed(futures, timeout=10):
             source_name = futures[future]
             try:
                 result = future.result(timeout=5)
@@ -528,8 +596,9 @@ def search_all_sources(query):
                         all_results.extend(result)
             except:
                 pass
-    
     return all_results, sources_searched
+
+@app.route('/')
 def serve_index():
     return send_from_directory('../frontend', 'index.html')
 
@@ -608,27 +677,18 @@ def search():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/trending', methods=['GET'])
-def trending():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('SELECT query, COUNT(*) as count FROM search_history GROUP BY query ORDER BY count DESC LIMIT 10')
-    trending = [dict(row) for row in cursor.fetchall()]
-    conn.close()
-    return jsonify({'success': True, 'trending': trending})
-
 @app.route('/api/related', methods=['POST'])
 def related():
     data = request.get_json()
     query = data.get('query', '')
     questions = []
     try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-        headers = {'Content-Type': 'application/json', 'X-goog-api-key': GEMINI_API_KEY}
-        data = {"contents": [{"parts": [{"text": f"Generate 5 related questions for: {query}"}]}]}
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {'Authorization': f'Bearer {GROQ_API_KEY}', 'Content-Type': 'application/json'}
+        data = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": f"Generate 5 related technical questions for: {query}. Return as numbered list."}], "max_tokens": 150, "temperature": 0.5}
         r = requests.post(url, headers=headers, json=data, timeout=10)
         if r.status_code == 200:
-            text = r.json()['candidates'][0]['content']['parts'][0]['text']
+            text = r.json()['choices'][0]['message']['content']
             questions = re.findall(r'\d+\.\s*(.+)', text)
     except:
         pass

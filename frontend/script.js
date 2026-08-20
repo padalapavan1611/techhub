@@ -142,8 +142,40 @@ function renderResults(answers) {
         const conf = Math.round((a.confidence || 0.5) * 100);
         const cls = conf > 70 ? 'confidence-high' : conf > 40 ? 'confidence-medium' : 'confidence-low';
         const isAI = a.source === 'Gemini AI';
-        return `<div class="card" style="${isAI ? 'grid-column:1/-1;' : ''}"><div class="card-header"><span class="card-title">${a.title || 'Result ' + (i+1)}</span><span class="card-source">${a.source}</span></div><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:var(--text-muted);">Trust: ${a.trust_score || 5}/10</span>${a.date ? `<span style="font-size:12px;color:var(--text-muted);">${a.date}</span>` : ''}</div><div class="confidence-bar"><div class="confidence-fill ${cls}" style="width:${conf}%;"></div></div><div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Confidence: ${conf}%</div><div class="card-body">${(a.body || '').substring(0, 300)}</div><div class="card-actions">${a.url ? `<button onclick="window.open('${a.url}','_blank')">View Source</button>` : ''}${a.url ? `<button onclick="copyAnswer('${a.url}')">Copy Link</button>` : ''}${isAI ? `<button onclick="copyAnswer('${escapeHtml(a.body || '')}')">Copy Answer</button>` : ''}<button onclick="saveAnswer('${allResults.query_id}','${a.source}','${escapeHtml(a.body || '')}','${a.url}',${a.confidence || 0.5})">Save</button></div></div>`;
+        const fullBody = a.body || '';
+        const shortBody = fullBody.substring(0, 150);
+        const isLong = fullBody.length > 150;
+        const answerId = `ans-${i}`;
+        return `<div class="card" style="${isAI ? 'grid-column:1/-1;' : ''}">
+            <div class="card-header"><span class="card-title">${a.title || 'Result ' + (i+1)}</span><span class="card-source">${a.source}</span></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:12px;color:var(--text-muted);">Trust: ${a.trust_score || 5}/10</span>${a.date ? `<span style="font-size:12px;color:var(--text-muted);">${a.date}</span>` : ''}</div>
+            <div class="confidence-bar"><div class="confidence-fill ${cls}" style="width:${conf}%;"></div></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Confidence: ${conf}%</div>
+            <div class="card-body" id="${answerId}-body">
+                <span id="${answerId}-short">${shortBody}${isLong ? '...' : ''}</span>
+                <span id="${answerId}-full" style="display:none;white-space:pre-wrap;">${fullBody}</span>
+            </div>
+            ${isLong ? `<button onclick="toggleAnswer('${answerId}')" style="font-size:12px;padding:6px 14px;background:transparent;border:1px solid var(--border);color:var(--accent);border-radius:4px;cursor:pointer;margin-bottom:12px;"><span id="${answerId}-btn">Read More</span></button>` : ''}
+            <div class="card-actions">${a.url ? `<button onclick="window.open('${a.url}','_blank')">View Source</button>` : ''}${a.url ? `<button onclick="copyAnswer('${a.url}')">Copy Link</button>` : ''}${isAI ? `<button onclick="copyAnswer('${escapeHtml(fullBody)}')">Copy Answer</button>` : ''}<button onclick="saveAnswer('${allResults.query_id}','${a.source}','${escapeHtml(fullBody)}','${a.url}',${a.confidence || 0.5})">Save</button></div>
+        </div>`;
     }).join('') + `</div>`;
+}
+
+function toggleAnswer(id) {
+    const shortEl = document.getElementById(`${id}-short`);
+    const fullEl = document.getElementById(`${id}-full`);
+    const btn = document.getElementById(`${id}-btn`);
+    if (shortEl && fullEl && btn) {
+        if (fullEl.style.display === 'none') {
+            shortEl.style.display = 'none';
+            fullEl.style.display = 'inline';
+            btn.textContent = 'Show Less';
+        } else {
+            shortEl.style.display = 'inline';
+            fullEl.style.display = 'none';
+            btn.textContent = 'Read More';
+        }
+    }
 }
 
 function filterResults(source) {
