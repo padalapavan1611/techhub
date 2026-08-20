@@ -248,56 +248,87 @@ Rules:
         return None
 
 def search_google(query, limit=5):
+    """Uses Bing search (scraping) - more reliable than DuckDuckGo"""
     results = []
     seen_urls = set()
+    
+    # Try Bing first
     try:
-        url = "https://api.duckduckgo.com/"
-        params = {'q': query, 'format': 'json', 'no_html': 1, 'no_redirect': 1, 'skip_disambig': 1}
-        r = requests.get(url, params=params, timeout=10)
+        url = f"https://www.bing.com/search?q={query}&count={limit*2}"
+        r = requests.get(url, headers=HEADERS, timeout=10)
         if r.status_code == 200:
-            data = r.json()
-            if data.get('AbstractText') and len(data.get('AbstractText', '')) > 50:
-                abstract_url = data.get('AbstractURL', '')
-                if abstract_url not in seen_urls:
-                    seen_urls.add(abstract_url)
-                    results.append({'source': 'Google Search', 'title': data.get('Heading', query), 'body': data.get('AbstractText', '')[:250], 'url': abstract_url, 'confidence': 0.75, 'trust_score': 7, 'reliability': 'High', 'date': ''})
-            for topic in data.get('RelatedTopics', []):
-                if isinstance(topic, dict) and 'Text' in topic:
-                    topic_text = topic.get('Text', '')
-                    topic_url = topic.get('FirstURL', '')
-                    if topic_url and topic_url not in seen_urls:
-                        text_lower = topic_text.lower()
-                        if any(w in text_lower for w in query.lower().split()[:3]):
-                            seen_urls.add(topic_url)
-                            results.append({'source': 'Google Search', 'title': topic_text[:100], 'body': topic_text[:250], 'url': topic_url, 'confidence': 0.60, 'trust_score': 6, 'reliability': 'Good', 'date': ''})
-                    if len(results) >= limit:
-                        break
-    except:
-        pass
-    if len(results) < 2:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            
+            # Try multiple Bing result selectors
+            for item in soup.find_all('li', class_='b_algo')[:limit]:
+                title_elem = item.find('h2')
+                link_elem = item.find('a')
+                snippet_elem = item.find('div', class_='b_caption') or item.find('p')
+                
+                if title_elem and link_elem:
+                    title = title_elem.get_text(strip=True)
+                    link = link_elem.get('href', '')
+                    body = snippet_elem.get_text(strip=True)[:250] if snippet_elem else ''
+                    
+                    if link and link not in seen_urls:
+                        seen_urls.add(link)
+                        results.append({
+                            'source': 'Google Search',
+                            'title': title,
+                            'body': body,
+                            'url': link,
+                            'confidence': 0.65,
+                            'trust_score': 7,
+                            'reliability': 'Good',
+                            'date': ''
+                        })
+        else:
+            print(f"Bing status: {r.status_code}")
+    except Exception as e:
+        print(f"Bing error: {e}")
+    
+    # Fallback to DuckDuckGo
+    if not results:
         try:
-            url = f"https://www.bing.com/search?q={query}&count={limit*2}"
-            r = requests.get(url, headers=HEADERS, timeout=10)
+            url = "https://api.duckduckgo.com/"
+            params = {'q': query, 'format': 'json', 'no_html': 1, 'no_redirect': 1, 'skip_disambig': 1}
+            r = requests.get(url, params=params, timeout=10)
             if r.status_code == 200:
-                soup = BeautifulSoup(r.text, 'html.parser')
-                for item in soup.find_all('li', class_='b_algo'):
-                    title_elem = item.find('h2')
-                    link_elem = item.find('a')
-                    snippet = item.find('div', class_='b_caption')
-                    if title_elem and link_elem:
-                        title = title_elem.get_text(strip=True)
-                        link = link_elem.get('href', '')
-                        body = snippet.get_text(strip=True)[:250] if snippet else ''
-                        if 'bing.com' in link or 'microsoft.com' in link:
-                            continue
-                        title_lower = title.lower()
-                        if link not in seen_urls and any(w in title_lower for w in query.lower().split()[:3]):
-                            seen_urls.add(link)
-                            results.append({'source': 'Google Search', 'title': title, 'body': body, 'url': link, 'confidence': 0.65, 'trust_score': 7, 'reliability': 'Good', 'date': ''})
+                data = r.json()
+                
+                if data.get('AbstractText') and len(data.get('AbstractText', '')) > 50:
+                    results.append({
+                        'source': 'Google Search',
+                        'title': data.get('Heading', query),
+                        'body': data.get('AbstractText', '')[:250],
+                        'url': data.get('AbstractURL', ''),
+                        'confidence': 0.75,
+                        'trust_score': 7,
+                        'reliability': 'High',
+                        'date': ''
+                    })
+                
+                for topic in data.get('RelatedTopics', []):
+                    if isinstance(topic, dict) and 'Text' in topic:
+                        topic_url = topic.get('FirstURL', '')
+                        if topic_url and topic_url not in seen_urls:
+                            seen_urls.add(topic_url)
+                            results.append({
+                                'source': 'Google Search',
+                                'title': topic.get('Text', '')[:100],
+                                'body': topic.get('Text', '')[:250],
+                                'url': topic_url,
+                                'confidence': 0.60,
+                                'trust_score': 6,
+                                'reliability': 'Good',
+                                'date': ''
+                            })
                         if len(results) >= limit:
                             break
         except:
             pass
+    
+    # Remove duplicates
     final_results = []
     seen_titles = set()
     for r in results:
@@ -305,8 +336,8 @@ def search_google(query, limit=5):
         if title_key not in seen_titles:
             seen_titles.add(title_key)
             final_results.append(r)
+    
     return final_results[:limit]
-
 def search_youtube(query, limit=3):
     try:
         url = "https://www.googleapis.com/youtube/v3/search"
