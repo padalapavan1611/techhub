@@ -20,25 +20,26 @@
         </div>
     </nav>
     
-    <div class="container">
-        <h1 style="font-size:32px; font-weight:600; margin-bottom:32px; text-align:center;">What would you like to learn?</h1>
+    <div class="container" style="min-height: calc(100vh - 80px); display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px 32px 80px;">
         
-        <div class="search-box">
-            <input type="text" id="search-input" placeholder="Ask any technical question...">
-            <button class="btn-primary" onclick="performSearch()">Search</button>
+        <h1 style="font-size:48px; font-weight:700; margin-bottom:56px; text-align:center; letter-spacing:-0.02em;">What would you like to learn?</h1>
+        
+        <div class="search-box" style="max-width:1000px; width:100%; margin-bottom:40px;">
+            <input type="text" id="search-input" placeholder="Ask any technical question..." style="padding:24px 32px; font-size:19px; height:72px; border-radius:14px;">
+            <button class="btn-primary" onclick="performSearch()" style="padding:0 48px; font-size:18px; font-weight:600; height:72px; border-radius:14px;">Search</button>
         </div>
         
-        <div class="suggestions">
-            <span class="chip" onclick="quickSearch('How to undo git commit')">git commit</span>
-            <span class="chip" onclick="quickSearch('Python read CSV')">Python CSV</span>
-            <span class="chip" onclick="quickSearch('JavaScript array methods')">JS arrays</span>
-            <span class="chip" onclick="quickSearch('SQL join query')">SQL join</span>
-            <span class="chip" onclick="quickSearch('Docker container')">Docker</span>
-            <span class="chip" onclick="quickSearch('React useState')">React</span>
-            <span class="chip" onclick="quickSearch('Center div CSS')">CSS center</span>
+        <div class="suggestions" style="max-width:1000px; gap:14px; margin-bottom:56px;">
+            <span class="chip" onclick="quickSearch('How to undo git commit')" style="padding:14px 28px; font-size:16px;">git commit</span>
+            <span class="chip" onclick="quickSearch('Python read CSV')" style="padding:14px 28px; font-size:16px;">Python CSV</span>
+            <span class="chip" onclick="quickSearch('JavaScript array methods')" style="padding:14px 28px; font-size:16px;">JS arrays</span>
+            <span class="chip" onclick="quickSearch('SQL join query')" style="padding:14px 28px; font-size:16px;">SQL join</span>
+            <span class="chip" onclick="quickSearch('Docker container')" style="padding:14px 28px; font-size:16px;">Docker</span>
+            <span class="chip" onclick="quickSearch('React useState')" style="padding:14px 28px; font-size:16px;">React</span>
+            <span class="chip" onclick="quickSearch('Center div CSS')" style="padding:14px 28px; font-size:16px;">CSS center</span>
         </div>
         
-        <p style="color:var(--text-muted); font-size:13px; text-align:center; margin-top:40px;">
+        <p style="color:var(--text-muted); font-size:15px; text-align:center; max-width:800px;">
             Searches Stack Overflow, GitHub, Reddit, Wikipedia, Dev.to, GeeksforGeeks, Medium, YouTube, DuckDuckGo, and Gemini AI in real-time.
         </p>
     </div>
