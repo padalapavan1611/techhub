@@ -207,7 +207,6 @@ function renderAnalysis(comparison, data) {
             </div>`;
     }
 
-    // Consensus panel: bar + best REAL source (Gemini excluded)
     const cc = document.getElementById('consensus-content');
     if (cc && comparison) {
         const conf = Math.round((comparison.avg_confidence || 0) * 100);
@@ -271,13 +270,12 @@ function renderResults(answers) {
         const answerId = `ans-${i}`;
         const url = safeUrl(a.url);
 
-        // ⬇️ View on X is now a REAL anchor link (never blocked)
         const actionsHtml = `
             <div class="card-actions">
                 ${url ? `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" class="btn-link">${escapeHtml(buttonLabel(a.source))}</a>` : ''}
                 ${url ? `<button data-action="copy-link" data-index="${i}">Copy Link</button>` : ''}
                 ${isGemini ? `<button data-action="copy-answer" data-index="${i}">Copy Answer</button>` : ''}
-                <button data-action="save" data-index="${i}">Save</button>
+                <button data-action="save" data-index="${i}" data-source="${escapeAttr(a.source || '')}" data-title="${escapeAttr(a.title || '')}">Save</button>
             </div>`;
 
         return `<div class="card" style="${isGemini ? 'grid-column:1/-1;border-color:var(--accent);' : ''}">
@@ -312,6 +310,8 @@ document.addEventListener('click', function (e) {
     const action = btn.dataset.action;
     const index = btn.dataset.index !== undefined ? parseInt(btn.dataset.index, 10) : null;
     const answerId = btn.dataset.answerId;
+    const dataSource = btn.dataset.source;
+    const dataTitle = btn.dataset.title;
 
     switch (action) {
         case 'copy-link': {
@@ -325,7 +325,7 @@ document.addEventListener('click', function (e) {
             if (a) copyAnswer(a.body || '');
             break;
         }
-        case 'save': saveResultByIndex(index); break;
+        case 'save': saveResultByIndex(index, dataSource, dataTitle); break;
         case 'toggle': toggleAnswer(answerId); break;
         case 'quick-search': {
             const q = btn.dataset.question;
@@ -338,10 +338,22 @@ document.addEventListener('click', function (e) {
 });
 
 // ============ SAVE ============
-async function saveResultByIndex(index) {
-    if (!allResults?.answers?.[index]) { showToast('Result not found', 'error'); return; }
+async function saveResultByIndex(index, dataSource, dataTitle) {
     if (!isLoggedIn()) { showToast('Please login', 'error'); return; }
-    const a = allResults.answers[index];
+
+    let a = null;
+    // Prefer matching by source + title passed from the button's data attributes
+    if (dataSource && dataTitle && allResults?.answers) {
+        a = allResults.answers.find(x =>
+            x.source === dataSource && (x.title || '') === dataTitle
+        );
+    }
+    // Fallback to index
+    if (!a && allResults?.answers?.[index]) {
+        a = allResults.answers[index];
+    }
+    if (!a) { showToast('Result not found', 'error'); return; }
+
     try {
         const r = await fetch(`${API_BASE}/api/history/save`, {
             method: 'POST', headers: getHeaders(),
@@ -354,7 +366,7 @@ async function saveResultByIndex(index) {
             })
         });
         const d = await r.json();
-        if (d.success) showToast('Saved successfully!');
+        if (d.success) showToast(`Saved ${a.source} result!`);
         else showToast(d.error || 'Failed to save', 'error');
     } catch { showToast('Server error', 'error'); }
 }
